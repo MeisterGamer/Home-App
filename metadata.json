@@ -1,0 +1,6 @@
+{
+  "name": "HomeNest",
+  "description": "Smart family home manager for chores, maintenance, shopping, budget, smart devices, senior mode, and voice tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
