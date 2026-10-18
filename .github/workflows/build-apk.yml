@@ -1,0 +1,63 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradlew Executable
+        run: chmod +x ./gradlew
+
+      - name: Create Mock Google Services if Missing
+        run: |
+          if [ ! -f "app/google-services.json" ]; then
+            echo '{"project_info":{"project_number":"123","project_id":"homenest","storage_bucket":"homenest.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:123:android:123","android_client_info":{"package_name":"com.aistudio.homenest.fnzq"}},"oauth_client":[],"api_key":[{"current_key":"mock_key"}],"services":{"analytics_service":{"status":1}}}]}' > app/google-services.json
+          fi
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HomeNest-Android-App-APK
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Create Release (on manual dispatch or tag)
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/debug/*.apk
+          name: "HomeNest Android Release"
+          tag_name: "v1.0-${{ github.run_number }}"
+          body: |
+            ## HomeNest Android App
+            Automated Android Build (.apk) for HomeNest.
+            Download `app-debug.apk` and install it directly on your Android phone or tablet.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
