@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0F766E">
+  <meta name="description" content="Smarte Haushalts- und Familienverwaltung für Aufgaben, dringende Reparaturen, Einkaufsliste, Budget und Seniorenmodus.">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <title>HomeNest - Smarte Familien & Haushalts-App</title>
+  <style>
+    :root {
+      --primary: #0F766E;
+      --primary-dark: #0D9488;
+      --urgent: #E11D48;
+      --bg: #0B1329;
+      --surface: #131D38;
+      --surface-light: #1E293B;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --accent: #FBBF24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 70px; }
+    header { background: var(--surface); padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; color: #fff; }
+    .brand-icon { width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, #1E3A8A, #0D9488); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .senior-toggle { background: var(--surface-light); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .senior-toggle.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    main { max-width: 720px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: var(--surface); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.05); }
+    .card.urgent { background: rgba(225, 29, 72, 0.15); border-color: var(--urgent); }
+    .card-title { font-size: 1rem; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .badge-urgent { background: var(--urgent); color: #fff; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: 800; }
+    .btn { background: var(--primary); color: #fff; border: none; padding: 10px 16px; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .btn-urgent { background: var(--urgent); }
+    .task-item { display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 10px; margin-bottom: 8px; }
+    .task-checkbox { width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer; }
+    .task-name { flex: 1; font-size: 14px; font-weight: 600; }
+    .task-meta { font-size: 11px; color: var(--text-muted); }
+    .pts { color: var(--accent); font-weight: 700; font-size: 12px; }
+    .progress-bar { background: var(--surface-light); height: 8px; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+    .progress-fill { background: var(--primary-dark); height: 100%; width: 75%; }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-around; padding: 10px; z-index: 100; }
+    .nav-item { color: var(--text-muted); text-decoration: none; font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+    .nav-item.active { color: var(--primary-dark); font-weight: 700; }
+    .senior-mode .task-name { font-size: 18px !important; }
+    .senior-mode .btn { font-size: 16px !important; padding: 14px 20px !important; }
+    .offline-banner { background: rgba(15, 118, 110, 0.2); color: #2DD4BF; border: 1px solid rgba(45, 212, 191, 0.3); padding: 8px 12px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🏡</div>
+      <span>HomeNest</span>
+    </div>
+    <button id="seniorBtn" class="senior-toggle" onclick="toggleSenior()">Seniorenmodus: AUS</button>
+  </header>
+
+  <main id="appMain">
+    <div class="offline-banner">
+      <span>●</span> 100% Offline-Fähig & PWABuilder-Ready (Service Worker aktiv)
+    </div>
+
+    <!-- Dringende Reparaturen -->
+    <div class="card urgent">
+      <div class="card-title">
+        <span>🚨 Dringende Haushaltsreparatur</span>
+        <span class="badge-urgent">SOFORT NÖTIG</span>
+      </div>
+      <p style="font-size: 13px; margin-bottom: 12px; color: #FECDD3;">Tropfendes Wasserrohr unter der Spüle in der Küche. Dichtungsring prüfen.</p>
+      <button class="btn btn-urgent" onclick="alert('Reparatur als erledigt markiert!')">Jetzt als Behoben markieren</button>
+    </div>
+
+    <!-- Tagesfokus -->
+    <div class="card">
+      <div class="card-title">
+        <span>Heutige Aufgaben (3 von 4 erledigt)</span>
+        <span class="pts">75%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+      <div class="task-item">
+        <input type="checkbox" class="task-checkbox" checked onchange="toggleDone(this)">
+        <div class="task-name">Geschirrspüler ausräumen <div class="task-meta">Alex • Küche</div></div>
+        <span class="pts">+15 Pkt</span>
+      </div>
+      <div class="task-item">
+        <input type="checkbox" class="task-checkbox" checked onchange="toggleDone(this)">
+        <div class="task-name">Hund Bella füttern & Wasser füllen <div class="task-meta">Maya • Haustiere</div></div>
+        <span class="pts">+10 Pkt</span>
+      </div>
+      <div class="task-item">
+        <input type="checkbox" class="task-checkbox" onchange="toggleDone(this)">
+        <div class="task-name">Heizungsfilter austauschen (12% verbleibend) <div class="task-meta">Papa • Wartung</div></div>
+        <span class="pts">+25 Pkt</span>
+      </div>
+    </div>
+
+    <!-- Smart Home Telemetrie -->
+    <div class="card">
+      <div class="card-title">
+        <span>Smart Home Telemetrie</span>
+        <span style="font-size: 12px; color: var(--primary-dark);">4 Geräte online</span>
+      </div>
+      <div style="font-size: 13px; line-height: 1.6; color: var(--text-muted);">
+        <div>🧹 <strong>Saugroboter:</strong> Angedockt (Akku 92%)</div>
+        <div>🍽️ <strong>Geschirrspüler:</strong> Spülgang beendet (Bereit)</div>
+        <div>💨 <strong>HVAC Luftfilter:</strong> 12% Lebensdauer (Austausch empfohlen)</div>
+        <div>🚨 <strong>Rauchmelder:</strong> Alle Sensoren sicher (Batterie 96%)</div>
+      </div>
+    </div>
+
+    <!-- Monatsbudget -->
+    <div class="card">
+      <div class="card-title">
+        <span>Monatliches Haushaltsbudget</span>
+        <span class="pts">Limit: 1.200 €</span>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px;">Bisher ausgegeben: <strong>380,00 €</strong> | Verfügbar: <strong style="color: #34D399;">820,00 €</strong></p>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active"><span>🏠</span><span>Start</span></div>
+    <div class="nav-item"><span>✅</span><span>Aufgaben</span></div>
+    <div class="nav-item"><span>🛒</span><span>Einkauf</span></div>
+    <div class="nav-item"><span>📅</span><span>Kalender</span></div>
+    <div class="nav-item"><span>⚙️</span><span>Optionen</span></div>
+  </nav>
+
+  <script>
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          console.log('PWA ServiceWorker registriert:', reg.scope);
+        }).catch((err) => {
+          console.error('ServiceWorker Fehler:', err);
+        });
+      });
+    }
+
+    function toggleSenior() {
+      const btn = document.getElementById('seniorBtn');
+      document.body.classList.toggle('senior-mode');
+      if (document.body.classList.contains('senior-mode')) {
+        btn.innerText = "Seniorenmodus: AN";
+        btn.classList.add('active');
+      } else {
+        btn.innerText = "Seniorenmodus: AUS";
+        btn.classList.remove('active');
+      }
+    }
+
+    function toggleDone(box) {
+      const name = box.nextElementSibling;
+      if (box.checked) {
+        name.style.textDecoration = "line-through";
+        name.style.opacity = "0.5";
+      } else {
+        name.style.textDecoration = "none";
+        name.style.opacity = "1";
+      }
+    }
+  </script>
+</body>
+</html>
