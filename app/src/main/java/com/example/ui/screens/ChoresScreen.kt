@@ -21,9 +21,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -37,9 +39,11 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +61,7 @@ import com.example.data.entity.FamilyMemberEntity
 import com.example.data.model.AppLanguage
 import com.example.localization.LanguageManager
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChoresScreen(
     chores: List<ChoreEntity>,
@@ -64,13 +69,28 @@ fun ChoresScreen(
     language: AppLanguage,
     onToggleChore: (ChoreEntity) -> Unit,
     onDeleteChore: (ChoreEntity) -> Unit,
-    onAddChore: (String, String, String, Long, String, Boolean, String, Int) -> Unit
+    onAddChore: (String, String, String, Long, String, Boolean, String, Int) -> Unit,
+    onClearCompleted: (() -> Unit)? = null
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    var statusFilter by remember { mutableStateOf("ALL") } // "ALL", "OPEN", "COMPLETED"
     var selectedCategory by remember { mutableStateOf("ALL") }
     var selectedMemberFilter by remember { mutableStateOf<Long?>(null) }
     var isAddDialogOpen by remember { mutableStateOf(false) }
 
-    val categories = listOf("ALL", "URGENT", "KITCHEN", "CLEANING", "MAINTENANCE", "YARD", "SAFETY", "PETS")
+    val categories = listOf(
+        Pair("ALL", if (language == AppLanguage.DE) "Alle" else "All"),
+        Pair("URGENT", if (language == AppLanguage.DE) "Dringend" else "Urgent"),
+        Pair("KITCHEN", if (language == AppLanguage.DE) "Küche" else "Kitchen"),
+        Pair("CLEANING", if (language == AppLanguage.DE) "Reinigung" else "Cleaning"),
+        Pair("MAINTENANCE", if (language == AppLanguage.DE) "Wartung" else "Maintenance"),
+        Pair("YARD", if (language == AppLanguage.DE) "Garten" else "Yard"),
+        Pair("SAFETY", if (language == AppLanguage.DE) "Sicherheit" else "Safety"),
+        Pair("PETS", if (language == AppLanguage.DE) "Haustiere" else "Pets"),
+        Pair("LAUNDRY", if (language == AppLanguage.DE) "Wäsche" else "Laundry")
+    )
+
+    val completedCount = chores.count { it.isCompleted }
 
     val filteredChores = chores.filter { chore ->
         val matchesCategory = when (selectedCategory) {
@@ -79,7 +99,18 @@ fun ChoresScreen(
             else -> chore.category.equals(selectedCategory, ignoreCase = true)
         }
         val matchesMember = selectedMemberFilter == null || chore.assignedMemberId == selectedMemberFilter
-        matchesCategory && matchesMember
+        val matchesStatus = when (statusFilter) {
+            "OPEN" -> !chore.isCompleted
+            "COMPLETED" -> chore.isCompleted
+            else -> true
+        }
+        val matchesSearch = searchQuery.isBlank() ||
+                chore.title.contains(searchQuery, ignoreCase = true) ||
+                chore.description.contains(searchQuery, ignoreCase = true) ||
+                chore.assignedMemberName.contains(searchQuery, ignoreCase = true) ||
+                chore.category.contains(searchQuery, ignoreCase = true)
+
+        matchesCategory && matchesMember && matchesStatus && matchesSearch
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -97,7 +128,7 @@ fun ChoresScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Household Tasks & Chores",
+                    text = LanguageManager.getString("chores_title", language),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -106,7 +137,7 @@ fun ChoresScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "${filteredChores.size} Tasks",
+                        text = "${filteredChores.size} ${LanguageManager.getString("tasks_count", language)}",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
@@ -115,24 +146,79 @@ fun ChoresScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("chores_search_input"),
+                placeholder = { Text(LanguageManager.getString("search_chores", language), fontSize = 13.sp) },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Status Tabs (All, Open, Completed) + Clear Completed Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = statusFilter == "ALL",
+                        onClick = { statusFilter = "ALL" },
+                        label = { Text(LanguageManager.getString("filter_all", language), fontSize = 12.sp) }
+                    )
+                    FilterChip(
+                        selected = statusFilter == "OPEN",
+                        onClick = { statusFilter = "OPEN" },
+                        label = { Text(LanguageManager.getString("filter_open", language), fontSize = 12.sp) }
+                    )
+                    FilterChip(
+                        selected = statusFilter == "COMPLETED",
+                        onClick = { statusFilter = "COMPLETED" },
+                        label = { Text(LanguageManager.getString("filter_completed", language), fontSize = 12.sp) }
+                    )
+                }
+
+                if (completedCount > 0 && onClearCompleted != null) {
+                    TextButton(
+                        onClick = onClearCompleted,
+                        modifier = Modifier.testTag("clear_completed_chores_btn")
+                    ) {
+                        Icon(imageVector = Icons.Default.ClearAll, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(LanguageManager.getString("clear_completed_chores", language), fontSize = 11.sp)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Category Filter Chips
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(categories) { cat ->
+                items(categories) { (catKey, catLabel) ->
                     FilterChip(
-                        selected = selectedCategory == cat,
-                        onClick = { selectedCategory = cat },
-                        label = { Text(cat) },
-                        modifier = Modifier.testTag("filter_$cat")
+                        selected = selectedCategory == catKey,
+                        onClick = { selectedCategory = catKey },
+                        label = { Text(catLabel, fontSize = 12.sp) },
+                        modifier = Modifier.testTag("filter_$catKey")
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             // Family Member filter pills
             LazyRow(
@@ -143,7 +229,7 @@ fun ChoresScreen(
                     FilterChip(
                         selected = selectedMemberFilter == null,
                         onClick = { selectedMemberFilter = null },
-                        label = { Text("All Family") }
+                        label = { Text(LanguageManager.getString("all_family", language), fontSize = 12.sp) }
                     )
                 }
                 items(members) { member ->
@@ -152,12 +238,12 @@ fun ChoresScreen(
                         onClick = {
                             selectedMemberFilter = if (selectedMemberFilter == member.id) null else member.id
                         },
-                        label = { Text(member.name) }
+                        label = { Text(member.name, fontSize = 12.sp) }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // Chore List
             if (filteredChores.isEmpty()) {
@@ -167,10 +253,19 @@ fun ChoresScreen(
                         .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "No tasks found for this filter. Tap + to add a chore or repair!",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = LanguageManager.getString("no_chores_found", language),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(onClick = { isAddDialogOpen = true }) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(LanguageManager.getString("add_chore", language))
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -256,6 +351,19 @@ fun ChoresScreen(
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                 )
                                             }
+                                        } else {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "+${chore.pointsValue} ${LanguageManager.getString("points", language)}",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -312,15 +420,31 @@ fun AddChoreDialog(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("MAINTENANCE") }
-    var selectedMember by remember { mutableStateOf(members.firstOrNull() ?: FamilyMemberEntity(1, "David (Dad)", "ADMIN", 0L)) }
+    var selectedMember by remember { mutableStateOf(members.firstOrNull() ?: FamilyMemberEntity(1, "Familie", "ADMIN", 0L)) }
     var isUrgentRepair by remember { mutableStateOf(false) }
-    var recurrence by remember { mutableStateOf("Once") }
+    var recurrence by remember { mutableStateOf("Einmalig") }
 
-    val categories = listOf("MAINTENANCE", "CLEANING", "KITCHEN", "YARD", "SAFETY", "PETS", "LAUNDRY")
+    val categories = listOf(
+        Pair("APPOINTMENT", "Termin & Event"),
+        Pair("MAINTENANCE", "Wartung & Reparatur"),
+        Pair("CLEANING", "Reinigung"),
+        Pair("KITCHEN", "Küche"),
+        Pair("YARD", "Garten"),
+        Pair("SAFETY", "Sicherheit"),
+        Pair("PETS", "Haustiere"),
+        Pair("LAUNDRY", "Wäsche")
+    )
+
+    val recurrences = listOf("Einmalig", "Täglich", "Wöchentlich", "Monatlich")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isUrgentRepair) "Report Urgent Home Repair" else "Add Family Chore", fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                if (isUrgentRepair) "Dringende Haushaltsreparatur melden" else "Haushaltsaufgabe anlegen",
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -329,8 +453,8 @@ fun AddChoreDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Task / Repair Title *") },
-                    placeholder = { Text("e.g., Fix Leaking Sink Pipe") },
+                    label = { Text("Titel der Aufgabe / Reparatur *") },
+                    placeholder = { Text("z. B. Tropfenden Wasserhahn reparieren") },
                     modifier = Modifier.fillMaxWidth().testTag("add_chore_title_input"),
                     singleLine = true
                 )
@@ -338,8 +462,8 @@ fun AddChoreDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description / Notes") },
-                    placeholder = { Text("Tools needed, location, instructions...") },
+                    label = { Text("Beschreibung / Werkzeuge / Notizen") },
+                    placeholder = { Text("Benötigte Werkzeuge, Raum, Anleitung...") },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3
                 )
@@ -360,35 +484,42 @@ fun AddChoreDialog(
                     Spacer(modifier = Modifier.width(6.dp))
                     Column {
                         Text(
-                            text = "Urgent Household Repair",
+                            text = "Dringende Reparatur / Alarm",
                             fontWeight = FontWeight.Bold,
                             color = if (isUrgentRepair) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Sends instant priority push alert to family",
+                            text = "Sendet sofortigen Push-Alarm & markiert rot",
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Text("Category:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    categories.forEach { cat ->
+                Text("Kategorie:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    categories.forEach { (catKey, catLabel) ->
                         FilterChip(
-                            selected = category == cat,
-                            onClick = { category = cat },
-                            label = { Text(cat, fontSize = 11.sp) }
+                            selected = category == catKey,
+                            onClick = { category = catKey },
+                            label = { Text(catLabel, fontSize = 11.sp) }
                         )
                     }
                 }
 
-                Text("Assign to:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                Text("Wiederholung:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    recurrences.forEach { rec ->
+                        FilterChip(
+                            selected = recurrence == rec,
+                            onClick = { recurrence = rec },
+                            label = { Text(rec, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Text("Zuweisen an:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(members) { m ->
                         FilterChip(
                             selected = selectedMember.id == m.id,
@@ -420,11 +551,11 @@ fun AddChoreDialog(
                 ),
                 modifier = Modifier.testTag("confirm_add_chore_button")
             ) {
-                Text(if (isUrgentRepair) "Submit Urgent Alert" else "Save Task")
+                Text(if (isUrgentRepair) "Dringenden Alarm auslösen" else "Aufgabe speichern")
             }
         },
         dismissButton = {
-            Button(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("Abbrechen") }
         }
     )
 }

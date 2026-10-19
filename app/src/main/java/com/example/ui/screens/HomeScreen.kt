@@ -23,10 +23,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Router
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
@@ -34,11 +37,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -66,7 +71,11 @@ fun HomeScreen(
     onToggleChore: (ChoreEntity) -> Unit,
     onNavigate: (AppScreen) -> Unit,
     onOpenVoice: () -> Unit,
-    onAddChoreClick: () -> Unit
+    onAddChoreClick: () -> Unit,
+    smartLightsOn: Boolean = false,
+    smartHeatingOn: Boolean = true,
+    onToggleSmartLights: (Boolean) -> Unit = {},
+    onToggleSmartHeating: (Boolean) -> Unit = {}
 ) {
     val completedCount = chores.count { it.isCompleted }
     val totalCount = chores.size
@@ -179,7 +188,7 @@ fun HomeScreen(
                                                 style = MaterialTheme.typography.titleSmall
                                             )
                                             Text(
-                                                text = "Assigned: ${repair.assignedMemberName} • ${repair.description}",
+                                                text = "${LanguageManager.getString("assigned_to", language)}: ${repair.assignedMemberName} • ${repair.description}",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1
@@ -191,7 +200,7 @@ fun HomeScreen(
                                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
-                                            Text("Resolve", fontSize = 12.sp)
+                                            Text(LanguageManager.getString("resolve", language), fontSize = 12.sp)
                                         }
                                     }
                                 }
@@ -220,7 +229,7 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "$completedCount / $totalCount Done",
+                                text = "$completedCount / $totalCount ${LanguageManager.getString("completed", language)}",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
@@ -239,8 +248,8 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (completedCount == totalCount && totalCount > 0) "🎉 Outstanding! All family chores completed for today!"
-                            else "${totalCount - completedCount} tasks remaining today. Complete tasks to earn family points!",
+                            text = if (completedCount == totalCount && totalCount > 0) LanguageManager.getString("all_completed_today", language)
+                            else "${totalCount - completedCount} ${LanguageManager.getString("remaining_today", language)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -256,7 +265,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Today's Chore Checklist",
+                        text = LanguageManager.getString("today_checklist", language),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -309,6 +318,133 @@ fun HomeScreen(
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(LanguageManager.getString("view_all", language), fontSize = 12.sp)
+                    }
+                }
+            }
+
+            // Interactive Smart Home Telemetrie Card with Simulation Toggles
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("smart_home_telemetry_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Sensors,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Echtzeit-Simulation & Haussteuerung",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Smart Lights Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (smartLightsOn) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lightbulb,
+                                            contentDescription = "Smart Lights",
+                                            tint = if (smartLightsOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Smarte Beleuchtung",
+                                        fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = if (smartLightsOn) "Ein • 80% Warmweiß (Wohnbereich & Flur)" else "Ausgeschaltet • Energiesparmodus",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (smartLightsOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = smartLightsOn,
+                                onCheckedChange = { onToggleSmartLights(it) },
+                                modifier = Modifier.testTag("smart_lights_toggle")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Smart Heating Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (smartHeatingOn) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Thermostat,
+                                            contentDescription = "Smart Heating",
+                                            tint = if (smartHeatingOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Intelligente Heizung",
+                                        fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = if (smartHeatingOn) "Ein • Komfortmodus (21.5°C geregelt)" else "Ausgeschaltet • Eco-Modus (16.0°C)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (smartHeatingOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = smartHeatingOn,
+                                onCheckedChange = { onToggleSmartHeating(it) },
+                                modifier = Modifier.testTag("smart_heating_toggle")
+                            )
+                        }
                     }
                 }
             }

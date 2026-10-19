@@ -51,7 +51,26 @@ data class FamilyMemberEntity(
     val avatarColor: Long,
     val points: Int = 0,
     val emergencyPhone: String = "",
-    val relationship: String = ""
+    val relationship: String = "",
+    val groupId: Long = 1L
+)
+
+@Entity(tableName = "household_groups")
+data class GroupEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val description: String = "",
+    val color: Long = 0xFF0D9488,
+    val iconName: String = "Home"
+)
+
+@Entity(tableName = "categories")
+data class CategoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val type: String = "ALL", // ALL, CHORE, SHOPPING, EXPENSE
+    val color: Long = 0xFF0D9488,
+    val iconName: String = "Label"
 )
 
 @Entity(tableName = "smart_devices")

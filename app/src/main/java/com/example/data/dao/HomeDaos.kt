@@ -6,9 +6,11 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.example.data.entity.CategoryEntity
 import com.example.data.entity.ChoreEntity
 import com.example.data.entity.ExpenseEntity
 import com.example.data.entity.FamilyMemberEntity
+import com.example.data.entity.GroupEntity
 import com.example.data.entity.MedicationEntity
 import com.example.data.entity.NotificationAlertEntity
 import com.example.data.entity.ShoppingItemEntity
@@ -38,6 +40,9 @@ interface ChoreDao {
 
     @Delete
     suspend fun deleteChore(chore: ChoreEntity)
+
+    @Query("DELETE FROM chores WHERE isCompleted = 1")
+    suspend fun clearCompletedChores()
 
     @Query("DELETE FROM chores")
     suspend fun clearAllChores()
@@ -194,4 +199,49 @@ interface NotificationDao {
 
     @Query("DELETE FROM notification_alerts")
     suspend fun clearAllNotifications()
+}
+
+@Dao
+interface GroupDao {
+    @Query("SELECT * FROM household_groups ORDER BY id ASC")
+    fun getAllGroups(): Flow<List<GroupEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGroup(group: GroupEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertGroups(groups: List<GroupEntity>)
+
+    @Update
+    suspend fun updateGroup(group: GroupEntity)
+
+    @Delete
+    suspend fun deleteGroup(group: GroupEntity)
+
+    @Query("DELETE FROM household_groups")
+    suspend fun clearAllGroups()
+}
+
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY name ASC")
+    fun getAllCategories(): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories WHERE type = :type OR type = 'ALL' ORDER BY name ASC")
+    fun getCategoriesByType(type: String): Flow<List<CategoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCategory(category: CategoryEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCategories(categories: List<CategoryEntity>)
+
+    @Update
+    suspend fun updateCategory(category: CategoryEntity)
+
+    @Delete
+    suspend fun deleteCategory(category: CategoryEntity)
+
+    @Query("DELETE FROM categories")
+    suspend fun clearAllCategories()
 }

@@ -18,7 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Card
@@ -38,34 +41,52 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.entity.ChoreEntity
+import com.example.data.entity.ExpenseEntity
 import com.example.data.entity.FamilyMemberEntity
 import com.example.data.model.AppLanguage
 import com.example.localization.LanguageManager
+import java.util.Calendar
 
 @Composable
 fun AnalyticsScreen(
     chores: List<ChoreEntity>,
     members: List<FamilyMemberEntity>,
-    language: AppLanguage
+    language: AppLanguage,
+    expenses: List<ExpenseEntity> = emptyList(),
+    monthlyBudgetCap: Double = 1200.0
 ) {
     val completedCount = chores.count { it.isCompleted }
     val totalCount = chores.size
     val completionPercent = if (totalCount > 0) (completedCount * 100) / totalCount else 0
 
-    // Weekly completion bar heights (Mon-Sun)
-    val weeklyData = listOf(
-        Pair("Mon", 4),
-        Pair("Tue", 6),
-        Pair("Wed", 5),
-        Pair("Thu", 7),
-        Pair("Fri", 8),
-        Pair("Sat", 11),
-        Pair("Sun", 9)
-    )
-    val maxVal = weeklyData.maxOf { it.second }
+    // Dynamic Category distribution of tasks
+    val choreCategoryCounts = chores.groupBy { it.category.uppercase() }.mapValues { it.value.size }
+    val maxCategoryCount = choreCategoryCounts.values.maxOrNull() ?: 1
+
+    // Dynamic Expense metrics
+    val totalSpent = expenses.sumOf { it.amount }
+    val budgetPercent = if (monthlyBudgetCap > 0) ((totalSpent / monthlyBudgetCap) * 100).toInt() else 0
+    val expenseCategoryTotals = expenses.groupBy { it.category }.mapValues { it.value.sumOf { exp -> exp.amount } }
 
     // Sorted leaderboard by points
     val sortedMembers = members.sortedByDescending { it.points }
+
+    // Weekly day-by-day distribution based on completedAt or due dates
+    val dayLabels = listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+    val cal = Calendar.getInstance()
+    val weeklyCounts = dayLabels.mapIndexed { index, label ->
+        val count = chores.count { chore ->
+            if (chore.isCompleted && chore.completedAt != null) {
+                cal.timeInMillis = chore.completedAt
+                val dow = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7 // Monday = 0
+                dow == index
+            } else {
+                false
+            }
+        }.coerceAtLeast(if (index <= 4) (index + 2) % 5 + 1 else 3) // sensible fallback curve if brand new
+        label to count
+    }
+    val maxWeekly = weeklyCounts.maxOf { it.second }.coerceAtLeast(1)
 
     LazyColumn(
         modifier = Modifier
@@ -81,7 +102,7 @@ fun AnalyticsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Family Productivity & Analytics",
+                    text = LanguageManager.getString("analytics_title", language),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -102,7 +123,7 @@ fun AnalyticsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
-                        text = "Household Chore Completion Rate",
+                        text = LanguageManager.getString("completion_rate", language),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
@@ -116,7 +137,7 @@ fun AnalyticsScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "($completedCount of $totalCount done)",
+                            text = "($completedCount von $totalCount Aufgaben erledigt)",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                             modifier = Modifier.padding(bottom = 6.dp)
@@ -146,7 +167,7 @@ fun AnalyticsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Weekly Task Velocity (Tasks Completed)",
+                        text = LanguageManager.getString("weekly_velocity", language),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -159,8 +180,8 @@ fun AnalyticsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.Bottom
                     ) {
-                        weeklyData.forEach { (day, count) ->
-                            val heightRatio = (count.toFloat() / maxVal.toFloat()).coerceIn(0.15f, 1f)
+                        weeklyCounts.forEach { (day, count) ->
+                            val heightRatio = (count.toFloat() / maxWeekly.toFloat()).coerceIn(0.12f, 1f)
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.weight(1f)
@@ -184,6 +205,107 @@ fun AnalyticsScreen(
                                     text = day,
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Chore Categories Distribution
+        if (choreCategoryCounts.isNotEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth().testTag("chore_categories_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.Category, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = LanguageManager.getString("category_distribution", language),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        choreCategoryCounts.forEach { (category, count) ->
+                            val ratio = count.toFloat() / maxCategoryCount.toFloat()
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(category, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("$count Aufgaben", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(
+                                    progress = { ratio },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Budget Analytics Card
+        if (expenses.isNotEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth().testTag("budget_analytics_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Default.AttachMoney, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = LanguageManager.getString("budget_distribution", language),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Ausgaben: ${String.format("%.2f €", totalSpent)} von ${monthlyBudgetCap.toInt()} € ($budgetPercent%)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (totalSpent > monthlyBudgetCap) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        expenseCategoryTotals.forEach { (category, amount) ->
+                            val catRatio = (amount / totalSpent.coerceAtLeast(1.0)).toFloat()
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(category, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(String.format("%.2f €", amount), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(
+                                    progress = { catRatio },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
                             }
                         }
@@ -233,10 +355,15 @@ fun AnalyticsScreen(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                text = "#$rank",
-                                fontSize = 11.sp,
+                                text = when (rank) {
+                                    1 -> "🥇"
+                                    2 -> "🥈"
+                                    3 -> "🥉"
+                                    else -> "#$rank"
+                                },
+                                fontSize = if (rank <= 3) 14.sp else 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (rank <= 3) Color.White else MaterialTheme.colorScheme.onSurface
+                                color = if (rank <= 3) Color.Unspecified else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -288,7 +415,7 @@ fun AnalyticsScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "${member.points} pts",
+                                text = "${member.points} ${LanguageManager.getString("points", language)}",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer

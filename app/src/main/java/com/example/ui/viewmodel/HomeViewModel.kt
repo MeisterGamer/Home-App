@@ -1,11 +1,14 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.entity.CategoryEntity
 import com.example.data.entity.ChoreEntity
 import com.example.data.entity.ExpenseEntity
 import com.example.data.entity.FamilyMemberEntity
+import com.example.data.entity.GroupEntity
 import com.example.data.entity.MedicationEntity
 import com.example.data.entity.NotificationAlertEntity
 import com.example.data.entity.ShoppingItemEntity
@@ -45,6 +48,7 @@ data class SyncState(
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = HomeRepository.getInstance(application, viewModelScope)
+    private val prefs = application.getSharedPreferences("homenest_app_prefs", Context.MODE_PRIVATE)
 
     // Flows from repository
     val allChores = repository.allChores.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -52,11 +56,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val allShoppingItems = repository.allShoppingItems.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val allExpenses = repository.allExpenses.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val allMembers = repository.allMembers.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val allGroups = repository.allGroups.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val allCategories = repository.allCategories.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val allDevices = repository.allDevices.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val allMedications = repository.allMedications.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val seniorVitals = repository.seniorVitals.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     val notifications = repository.notifications.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val unreadNotifCount = repository.unreadNotificationCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // First-time Setup Wizard / Onboarding state
+    private val _isOnboardingCompleted = MutableStateFlow(prefs.getBoolean("onboarding_completed", false))
+    val isOnboardingCompleted: StateFlow<Boolean> = _isOnboardingCompleted.asStateFlow()
+
+    private val _showSetupWizard = MutableStateFlow(!prefs.getBoolean("onboarding_completed", false))
+    val showSetupWizard: StateFlow<Boolean> = _showSetupWizard.asStateFlow()
 
     // UI Configuration States
     private val _currentScreen = MutableStateFlow(AppScreen.HOME)
@@ -91,6 +104,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isNotifDialogOpen = MutableStateFlow(false)
     val isNotifDialogOpen: StateFlow<Boolean> = _isNotifDialogOpen.asStateFlow()
+
+    private val _smartLightsOn = MutableStateFlow(false)
+    val smartLightsOn: StateFlow<Boolean> = _smartLightsOn.asStateFlow()
+
+    private val _smartHeatingOn = MutableStateFlow(true)
+    val smartHeatingOn: StateFlow<Boolean> = _smartHeatingOn.asStateFlow()
 
     // Navigation and screen switching
     fun navigateTo(screen: AppScreen) {
@@ -133,6 +152,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _isNotifDialogOpen.value = open
     }
 
+    fun toggleSmartLights(enabled: Boolean? = null) {
+        _smartLightsOn.value = enabled ?: !_smartLightsOn.value
+    }
+
+    fun toggleSmartHeating(enabled: Boolean? = null) {
+        _smartHeatingOn.value = enabled ?: !_smartHeatingOn.value
+    }
+
     // Chore Actions
     fun toggleChore(chore: ChoreEntity) {
         viewModelScope.launch {
@@ -172,6 +199,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteChore(chore: ChoreEntity) {
         viewModelScope.launch {
             repository.deleteChore(chore)
+        }
+    }
+
+    fun clearCompletedChores() {
+        viewModelScope.launch {
+            repository.clearCompletedChores()
         }
     }
 
@@ -228,18 +261,100 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Family Member Operations
-    fun addFamilyMember(name: String, role: String, relationship: String, emergencyPhone: String = "") {
+    // Setup Wizard Operations
+    fun startSetupWizard() {
+        _showSetupWizard.value = true
+    }
+
+    fun dismissSetupWizard() {
+        _showSetupWizard.value = false
+    }
+
+    fun completeSetupWizard(
+        householdName: String,
+        monthlyBudget: Double,
+        enableSeniorMode: Boolean,
+        enableDarkMode: Boolean
+    ) {
+        prefs.edit().putBoolean("onboarding_completed", true).apply()
+        _isOnboardingCompleted.value = true
+        _showSetupWizard.value = false
+        _monthlyBudgetCap.value = monthlyBudget
+        _isSeniorMode.value = enableSeniorMode
+        _isDarkMode.value = enableDarkMode
+        viewModelScope.launch {
+            val groups = allGroups.value
+            if (groups.isNotEmpty() && householdName.isNotBlank()) {
+                val mainGroup = groups.first()
+                repository.updateGroup(mainGroup.copy(name = householdName))
+            } else if (householdName.isNotBlank()) {
+                repository.addGroup(name = householdName, description = "Hauptwohnsitz")
+            }
+        }
+    }
+
+    // Family Member Operations (Add, Edit, Delete)
+    fun addFamilyMember(
+        name: String,
+        role: String,
+        relationship: String,
+        emergencyPhone: String = "",
+        groupId: Long = 1L
+    ) {
         viewModelScope.launch {
             val colors = listOf(0xFF0D9488L, 0xFF2563EBL, 0xFF8B5CF6L, 0xFFF59E0BL, 0xFFEC4899L, 0xFF10B981L)
             val randomColor = colors.random()
-            repository.addFamilyMember(name, role, relationship, emergencyPhone, randomColor)
+            repository.addFamilyMember(name, role, relationship, emergencyPhone, randomColor, groupId)
+        }
+    }
+
+    fun updateFamilyMember(member: FamilyMemberEntity) {
+        viewModelScope.launch {
+            repository.updateFamilyMember(member)
         }
     }
 
     fun deleteFamilyMember(member: FamilyMemberEntity) {
         viewModelScope.launch {
             repository.deleteFamilyMember(member)
+        }
+    }
+
+    // Household Group Operations (Create, Edit, Delete)
+    fun addGroup(name: String, description: String = "", color: Long = 0xFF0D9488L, iconName: String = "Home") {
+        viewModelScope.launch {
+            repository.addGroup(name, description, color, iconName)
+        }
+    }
+
+    fun updateGroup(group: GroupEntity) {
+        viewModelScope.launch {
+            repository.updateGroup(group)
+        }
+    }
+
+    fun deleteGroup(group: GroupEntity) {
+        viewModelScope.launch {
+            repository.deleteGroup(group)
+        }
+    }
+
+    // Custom Category Operations (Create, Edit, Delete)
+    fun addCategory(name: String, type: String = "ALL", color: Long = 0xFF0D9488L, iconName: String = "Label") {
+        viewModelScope.launch {
+            repository.addCategory(name, type, color, iconName)
+        }
+    }
+
+    fun updateCategory(category: CategoryEntity) {
+        viewModelScope.launch {
+            repository.updateCategory(category)
+        }
+    }
+
+    fun deleteCategory(category: CategoryEntity) {
+        viewModelScope.launch {
+            repository.deleteCategory(category)
         }
     }
 
@@ -387,6 +502,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     } else {
                         _voiceFeedback.value = "Alle Medikamente für heute bereits eingenommen!"
                     }
+                }
+                is VoiceActionResult.ToggleSmartLights -> {
+                    toggleSmartLights(action.turnOn)
+                    _voiceFeedback.value = if (action.turnOn) "Smarte Beleuchtung eingeschaltet (80% Warmweiß)." else "Smarte Beleuchtung ausgeschaltet."
+                }
+                is VoiceActionResult.ToggleSmartHeating -> {
+                    toggleSmartHeating(action.turnOn)
+                    _voiceFeedback.value = if (action.turnOn) "Intelligente Heizung auf Komfortmodus (21.5°C) gestellt." else "Intelligente Heizung auf Eco-Modus gestellt."
                 }
                 is VoiceActionResult.Unknown -> {
                     _voiceFeedback.value = "Erkannt: '$rawText'. Beispiel: 'Milch zur Einkaufsliste hinzufügen' oder 'Geschirr erledigt'"

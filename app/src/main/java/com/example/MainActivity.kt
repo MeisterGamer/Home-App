@@ -42,6 +42,7 @@ import com.example.ui.screens.ChoresScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.SeniorElderScreen
 import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.SetupWizardDialog
 import com.example.ui.screens.ShoppingScreen
 import com.example.ui.screens.SmartHomeHubScreen
 import com.example.ui.theme.HomeNestTheme
@@ -68,6 +69,8 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
     val allShoppingItems by viewModel.allShoppingItems.collectAsStateWithLifecycle()
     val allExpenses by viewModel.allExpenses.collectAsStateWithLifecycle()
     val allMembers by viewModel.allMembers.collectAsStateWithLifecycle()
+    val allGroups by viewModel.allGroups.collectAsStateWithLifecycle()
+    val allCategories by viewModel.allCategories.collectAsStateWithLifecycle()
     val allDevices by viewModel.allDevices.collectAsStateWithLifecycle()
     val allMedications by viewModel.allMedications.collectAsStateWithLifecycle()
     val seniorVitals by viewModel.seniorVitals.collectAsStateWithLifecycle()
@@ -85,6 +88,9 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
     val voiceFeedback by viewModel.voiceFeedback.collectAsStateWithLifecycle()
     val isVoiceDialogOpen by viewModel.isVoiceDialogOpen.collectAsStateWithLifecycle()
     val isNotifDialogOpen by viewModel.isNotifDialogOpen.collectAsStateWithLifecycle()
+    val smartLightsOn by viewModel.smartLightsOn.collectAsStateWithLifecycle()
+    val smartHeatingOn by viewModel.smartHeatingOn.collectAsStateWithLifecycle()
+    val showSetupWizard by viewModel.showSetupWizard.collectAsStateWithLifecycle()
 
     var isMemberSelectOpen by remember { mutableStateOf(false) }
     var isAddChoreDialogOpen by remember { mutableStateOf(false) }
@@ -182,7 +188,11 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                             onToggleChore = { viewModel.toggleChore(it) },
                             onNavigate = { viewModel.navigateTo(it) },
                             onOpenVoice = { viewModel.setVoiceDialogOpen(true) },
-                            onAddChoreClick = { isAddChoreDialogOpen = true }
+                            onAddChoreClick = { isAddChoreDialogOpen = true },
+                            smartLightsOn = smartLightsOn,
+                            smartHeatingOn = smartHeatingOn,
+                            onToggleSmartLights = { viewModel.toggleSmartLights(it) },
+                            onToggleSmartHeating = { viewModel.toggleSmartHeating(it) }
                         )
                         AppScreen.CHORES -> ChoresScreen(
                             chores = allChores,
@@ -192,7 +202,8 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                             onDeleteChore = { viewModel.deleteChore(it) },
                             onAddChore = { title, desc, cat, memberId, memberName, isUrgent, recurrence, pts ->
                                 viewModel.addChore(title, desc, cat, memberId, memberName, isUrgent, recurrence, pts)
-                            }
+                            },
+                            onClearCompleted = { viewModel.clearCompletedChores() }
                         )
                         AppScreen.SHOPPING -> ShoppingScreen(
                             items = allShoppingItems,
@@ -210,7 +221,10 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                             members = allMembers,
                             medications = allMedications,
                             language = currentLanguage,
-                            onToggleChore = { viewModel.toggleChore(it) }
+                            onToggleChore = { viewModel.toggleChore(it) },
+                            onAddChore = { title, desc, cat, memberId, memberName, isUrgent, recurrence, pts ->
+                                viewModel.addChore(title, desc, cat, memberId, memberName, isUrgent, recurrence, pts)
+                            }
                         )
                         AppScreen.BUDGET -> BudgetScreen(
                             expenses = allExpenses,
@@ -250,10 +264,14 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                         AppScreen.ANALYTICS -> AnalyticsScreen(
                             chores = allChores,
                             members = allMembers,
-                            language = currentLanguage
+                            language = currentLanguage,
+                            expenses = allExpenses,
+                            monthlyBudgetCap = monthlyBudgetCap
                         )
                         AppScreen.SETTINGS -> SettingsScreen(
                             members = allMembers,
+                            groups = allGroups,
+                            categories = allCategories,
                             activeMember = selectedMember,
                             isDarkMode = isDarkMode,
                             isHighContrast = isHighContrast,
@@ -265,12 +283,23 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                             onToggleHighContrast = { viewModel.toggleHighContrast() },
                             onSetLanguage = { viewModel.setLanguage(it) },
                             onTriggerSync = { viewModel.triggerCloudSync() },
-                            onClearExampleData = { viewModel.clearAllExampleData() },
                             onAddMember = { name, role, rel, phone ->
                                 viewModel.addFamilyMember(name, role, rel, phone)
                             },
+                            onUpdateMember = { viewModel.updateFamilyMember(it) },
                             onDeleteMember = { viewModel.deleteFamilyMember(it) },
-                            onUpdateBudgetCap = { viewModel.setMonthlyBudgetCap(it) }
+                            onAddGroup = { name, desc, color ->
+                                viewModel.addGroup(name, desc, color)
+                            },
+                            onUpdateGroup = { viewModel.updateGroup(it) },
+                            onDeleteGroup = { viewModel.deleteGroup(it) },
+                            onAddCategory = { name, type, color ->
+                                viewModel.addCategory(name, type, color)
+                            },
+                            onUpdateCategory = { viewModel.updateCategory(it) },
+                            onDeleteCategory = { viewModel.deleteCategory(it) },
+                            onUpdateBudgetCap = { viewModel.setMonthlyBudgetCap(it) },
+                            onStartSetupWizard = { viewModel.startSetupWizard() }
                         )
                     }
                 }
@@ -281,6 +310,7 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
         VoiceAssistantDialog(
             isOpen = isVoiceDialogOpen,
             feedback = voiceFeedback,
+            language = currentLanguage,
             onDismiss = { viewModel.setVoiceDialogOpen(false) },
             onSubmitCommand = { viewModel.handleVoiceCommand(it) }
         )
@@ -289,6 +319,7 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
         NotificationCenterDialog(
             isOpen = isNotifDialogOpen,
             notifications = notifications,
+            language = currentLanguage,
             onDismiss = { viewModel.setNotifDialogOpen(false) },
             onMarkAllRead = { viewModel.markAllNotificationsRead() },
             onDelete = { viewModel.deleteNotification(it) }
@@ -299,6 +330,7 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
             isOpen = isMemberSelectOpen,
             members = allMembers,
             selectedId = selectedMember?.id ?: 1L,
+            language = currentLanguage,
             onDismiss = { isMemberSelectOpen = false },
             onSelect = { viewModel.selectMember(it) }
         )
@@ -314,5 +346,30 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                 }
             )
         }
+
+        // First-Time Setup Wizard Dialog (100% finished onboarding assistant)
+        SetupWizardDialog(
+            isOpen = showSetupWizard,
+            currentHouseholdName = allGroups.firstOrNull()?.name ?: "Unsere Familie",
+            members = allMembers,
+            groups = allGroups,
+            categories = allCategories,
+            initialBudgetCap = monthlyBudgetCap,
+            isDarkMode = isDarkMode,
+            isSeniorMode = isSeniorMode,
+            onComplete = { householdName, budget, enableSenior, enableDark ->
+                viewModel.completeSetupWizard(householdName, budget, enableSenior, enableDark)
+            },
+            onDismiss = { viewModel.dismissSetupWizard() },
+            onAddMember = { name, role, rel, phone ->
+                viewModel.addFamilyMember(name, role, rel, phone)
+            },
+            onUpdateMember = { viewModel.updateFamilyMember(it) },
+            onDeleteMember = { viewModel.deleteFamilyMember(it) },
+            onAddCategory = { name, type, color ->
+                viewModel.addCategory(name, type, color)
+            },
+            onDeleteCategory = { viewModel.deleteCategory(it) }
+        )
     }
 }

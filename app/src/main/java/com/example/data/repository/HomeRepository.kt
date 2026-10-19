@@ -2,9 +2,11 @@ package com.example.data.repository
 
 import android.content.Context
 import com.example.data.db.HomeDatabase
+import com.example.data.entity.CategoryEntity
 import com.example.data.entity.ChoreEntity
 import com.example.data.entity.ExpenseEntity
 import com.example.data.entity.FamilyMemberEntity
+import com.example.data.entity.GroupEntity
 import com.example.data.entity.MedicationEntity
 import com.example.data.entity.NotificationAlertEntity
 import com.example.data.entity.ShoppingItemEntity
@@ -28,6 +30,8 @@ class HomeRepository(
     val allShoppingItems: Flow<List<ShoppingItemEntity>> = db.shoppingDao().getAllItems()
     val allExpenses: Flow<List<ExpenseEntity>> = db.expenseDao().getAllExpenses()
     val allMembers: Flow<List<FamilyMemberEntity>> = db.familyMemberDao().getAllMembers()
+    val allGroups: Flow<List<GroupEntity>> = db.groupDao().getAllGroups()
+    val allCategories: Flow<List<CategoryEntity>> = db.categoryDao().getAllCategories()
     val allDevices: Flow<List<SmartDeviceEntity>> = db.smartDeviceDao().getAllDevices()
     val allMedications: Flow<List<MedicationEntity>> = db.medicationDao().getAllMedications()
     val seniorVitals: Flow<WearableVitalEntity?> = db.wearableDao().getVitalsForMember(5)
@@ -79,6 +83,10 @@ class HomeRepository(
 
     suspend fun deleteChore(chore: ChoreEntity) {
         db.choreDao().deleteChore(chore)
+    }
+
+    suspend fun clearCompletedChores() {
+        db.choreDao().clearCompletedChores()
     }
 
     // Shopping List Operations
@@ -137,7 +145,14 @@ class HomeRepository(
     }
 
     // Family Member Operations (Add, Edit, Delete)
-    suspend fun addFamilyMember(name: String, role: String, relationship: String, emergencyPhone: String = "", color: Long = 0xFF0D9488) {
+    suspend fun addFamilyMember(
+        name: String,
+        role: String,
+        relationship: String,
+        emergencyPhone: String = "",
+        color: Long = 0xFF0D9488,
+        groupId: Long = 1L
+    ) {
         db.familyMemberDao().insertMember(
             FamilyMemberEntity(
                 name = name,
@@ -145,7 +160,8 @@ class HomeRepository(
                 avatarColor = color,
                 points = 0,
                 emergencyPhone = emergencyPhone,
-                relationship = relationship
+                relationship = relationship,
+                groupId = groupId
             )
         )
     }
@@ -156,6 +172,46 @@ class HomeRepository(
 
     suspend fun deleteFamilyMember(member: FamilyMemberEntity) {
         db.familyMemberDao().deleteMember(member)
+    }
+
+    // Household Group Operations (Create, Edit, Delete)
+    suspend fun addGroup(name: String, description: String = "", color: Long = 0xFF0D9488, iconName: String = "Home") {
+        db.groupDao().insertGroup(
+            GroupEntity(
+                name = name,
+                description = description,
+                color = color,
+                iconName = iconName
+            )
+        )
+    }
+
+    suspend fun updateGroup(group: GroupEntity) {
+        db.groupDao().updateGroup(group)
+    }
+
+    suspend fun deleteGroup(group: GroupEntity) {
+        db.groupDao().deleteGroup(group)
+    }
+
+    // Custom Category Operations (Create, Edit, Delete)
+    suspend fun addCategory(name: String, type: String = "ALL", color: Long = 0xFF0D9488, iconName: String = "Label") {
+        db.categoryDao().insertCategory(
+            CategoryEntity(
+                name = name,
+                type = type,
+                color = color,
+                iconName = iconName
+            )
+        )
+    }
+
+    suspend fun updateCategory(category: CategoryEntity) {
+        db.categoryDao().updateCategory(category)
+    }
+
+    suspend fun deleteCategory(category: CategoryEntity) {
+        db.categoryDao().deleteCategory(category)
     }
 
     // Smart Device Operations

@@ -59,6 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.entity.FamilyMemberEntity
 import com.example.data.entity.NotificationAlertEntity
+import com.example.data.model.AppLanguage
+import com.example.localization.LanguageManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -68,6 +70,7 @@ import java.util.Locale
 fun VoiceAssistantDialog(
     isOpen: Boolean,
     feedback: String?,
+    language: AppLanguage = AppLanguage.DE,
     onDismiss: () -> Unit,
     onSubmitCommand: (String) -> Unit
 ) {
@@ -87,6 +90,26 @@ fun VoiceAssistantDialog(
         label = "pulse_scale"
     )
 
+    val sampleCommands = if (language == AppLanguage.DE) {
+        listOf(
+            "Milch zur Einkaufsliste hinzufügen",
+            "Geschirrspüler ausgeräumt",
+            "Dringender Rohrbruch in der Küche",
+            "15 Euro für Bäckerei ausgegeben",
+            "In den Seniorenmodus wechseln",
+            "Medikamente eingenommen"
+        )
+    } else {
+        listOf(
+            "Add organic milk to shopping list",
+            "Unload dishes complete",
+            "Urgent kitchen sink leak",
+            "Log $45 expense for groceries",
+            "Switch to senior mode",
+            "Took my afternoon medicine"
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -98,7 +121,7 @@ fun VoiceAssistantDialog(
                     modifier = Modifier.size(28.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Hands-Free Voice Assistant", fontWeight = FontWeight.Bold)
+                Text(LanguageManager.getString("voice_dialog_title", language), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -130,7 +153,8 @@ fun VoiceAssistantDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = if (isListeningSim) "Listening for home commands..." else "Tap microphone or type command below",
+                    text = if (isListeningSim) LanguageManager.getString("voice_listening", language)
+                    else LanguageManager.getString("voice_tap_hint", language),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -155,21 +179,13 @@ fun VoiceAssistantDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Quick Voice Command Examples:",
+                    text = LanguageManager.getString("voice_quick_examples", language),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.align(Alignment.Start)
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
-                val sampleCommands = listOf(
-                    "Add organic milk to shopping list",
-                    "Unload dishes complete",
-                    "Urgent kitchen sink leak",
-                    "Log $45 expense for groceries",
-                    "Switch to senior mode",
-                    "Took my afternoon medicine"
-                )
 
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -194,7 +210,7 @@ fun VoiceAssistantDialog(
                     OutlinedTextField(
                         value = manualInput,
                         onValueChange = { manualInput = it },
-                        placeholder = { Text("Or type command...") },
+                        placeholder = { Text(if (language == AppLanguage.DE) "Oder Befehl tippen..." else "Or type command...") },
                         modifier = Modifier.weight(1f).testTag("voice_command_input"),
                         singleLine = true
                     )
@@ -215,7 +231,7 @@ fun VoiceAssistantDialog(
         },
         confirmButton = {
             Button(onClick = onDismiss) {
-                Text("Close")
+                Text(if (language == AppLanguage.DE) "Schließen" else "Close")
             }
         }
     )
@@ -225,13 +241,15 @@ fun VoiceAssistantDialog(
 fun NotificationCenterDialog(
     isOpen: Boolean,
     notifications: List<NotificationAlertEntity>,
+    language: AppLanguage = AppLanguage.DE,
     onDismiss: () -> Unit,
     onMarkAllRead: () -> Unit,
     onDelete: (NotificationAlertEntity) -> Unit
 ) {
     if (!isOpen) return
 
-    val dateFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+    val locale = if (language == AppLanguage.DE) Locale.GERMAN else Locale.getDefault()
+    val dateFormat = SimpleDateFormat("d. MMM, HH:mm", locale)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -241,10 +259,10 @@ fun NotificationCenterDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Household Notifications", fontWeight = FontWeight.Bold)
+                Text(LanguageManager.getString("notifications_title", language), fontWeight = FontWeight.Bold)
                 if (notifications.any { !it.isRead }) {
                     TextButton(onClick = onMarkAllRead) {
-                        Text("Mark all read", fontSize = 12.sp)
+                        Text(LanguageManager.getString("mark_all_read", language), fontSize = 12.sp)
                     }
                 }
             }
@@ -257,7 +275,10 @@ fun NotificationCenterDialog(
                         .height(120.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No alerts at this time. All home systems clear!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        LanguageManager.getString("no_notifications", language),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
                 LazyColumn(
@@ -326,7 +347,7 @@ fun NotificationCenterDialog(
         },
         confirmButton = {
             Button(onClick = onDismiss) {
-                Text("Close")
+                Text(if (language == AppLanguage.DE) "Schließen" else "Close")
             }
         }
     )
@@ -337,6 +358,7 @@ fun FamilyMemberSelectDialog(
     isOpen: Boolean,
     members: List<FamilyMemberEntity>,
     selectedId: Long,
+    language: AppLanguage = AppLanguage.DE,
     onDismiss: () -> Unit,
     onSelect: (FamilyMemberEntity) -> Unit
 ) {
@@ -345,12 +367,12 @@ fun FamilyMemberSelectDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Switch Family Member", fontWeight = FontWeight.Bold)
+            Text(LanguageManager.getString("switch_member_title", language), fontWeight = FontWeight.Bold)
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Role-based views adapt chore lists, budget visibility, and elder care modes per family member:",
+                    text = LanguageManager.getString("switch_member_desc", language),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -397,7 +419,7 @@ fun FamilyMemberSelectDialog(
                                         style = MaterialTheme.typography.titleMedium
                                     )
                                     Text(
-                                        text = "${member.role} • ${member.relationship} • ${member.points} pts",
+                                        text = "${member.role} • ${member.relationship} • ${member.points} ${LanguageManager.getString("points", language)}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -417,7 +439,7 @@ fun FamilyMemberSelectDialog(
         },
         confirmButton = {
             Button(onClick = onDismiss) {
-                Text("Cancel")
+                Text(if (language == AppLanguage.DE) "Abbrechen" else "Cancel")
             }
         }
     )
