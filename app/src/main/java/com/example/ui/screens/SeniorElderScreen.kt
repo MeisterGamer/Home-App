@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,27 +23,37 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Watch
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,11 +76,16 @@ fun SeniorElderScreen(
     isHighContrast: Boolean,
     language: AppLanguage,
     onToggleMedication: (MedicationEntity) -> Unit,
+    onAddMedication: (String, String, String, String, String) -> Unit,
+    onDeleteMedication: (MedicationEntity) -> Unit,
+    onUpdateVitals: (Int, Int, Float, Int, Int) -> Unit,
     onToggleDarkMode: () -> Unit,
     onToggleHighContrast: () -> Unit,
     onOpenVoice: () -> Unit
 ) {
     val context = LocalContext.current
+    var showAddMedDialog by remember { mutableStateOf(false) }
+    var showVitalsDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -87,13 +104,13 @@ fun SeniorElderScreen(
             ) {
                 Column {
                     Text(
-                        text = "Elder Care Mode",
+                        text = "Senioren- & Pflegemodus",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "Large Text • High Contrast • Simplified",
+                        text = "Große Schrift • Hoher Kontrast • Einfache Bedienung",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -115,11 +132,11 @@ fun SeniorElderScreen(
                         ) {
                             Icon(
                                 imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                                contentDescription = "Toggle Dark Mode",
+                                contentDescription = "Modus",
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (isDarkMode) "Light" else "Dark", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(if (isDarkMode) "Hell" else "Dunkel", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -133,7 +150,7 @@ fun SeniorElderScreen(
                             .testTag("elder_contrast_toggle")
                     ) {
                         Text(
-                            text = if (isHighContrast) "Contrast ON" else "High Contrast",
+                            text = if (isHighContrast) "Kontrast AN" else "Kontrast",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isHighContrast) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
@@ -148,11 +165,11 @@ fun SeniorElderScreen(
         item {
             Button(
                 onClick = {
-                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:5550102"))
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:112"))
                     try {
                         context.startActivity(intent)
                     } catch (e: Exception) {
-                        // Dial intent fallback
+                        // fallback
                     }
                 },
                 modifier = Modifier
@@ -171,7 +188,7 @@ fun SeniorElderScreen(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = LanguageManager.getString("emergency_call", language),
+                        text = "Familie / Notruf anrufen",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onError
@@ -200,7 +217,7 @@ fun SeniorElderScreen(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Speak to Assistant (Voice)",
+                        text = "Sprachassistent starten",
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSecondary
@@ -231,22 +248,13 @@ fun SeniorElderScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Wearable Health & Sleep Tracker",
+                                text = "Wearable Vitalwerte & Schlafmuster",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Text(
-                                text = "Connected",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                        IconButton(onClick = { showVitalsDialog = true }) {
+                            Icon(imageVector = Icons.Default.Edit, contentDescription = "Werte eintragen", modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -270,7 +278,7 @@ fun SeniorElderScreen(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
-                            Text("Resting Pulse", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Ruhepuls", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         // Steps
@@ -283,11 +291,11 @@ fun SeniorElderScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "${vitals?.steps ?: 3840}",
+                                text = "${vitals?.steps ?: 0}",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
-                            Text("Steps Today", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Schritte heute", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         // Sleep
@@ -300,11 +308,11 @@ fun SeniorElderScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "${vitals?.sleepHours ?: 7.6f} hrs",
+                                text = "${vitals?.sleepHours ?: 0f} Std",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
-                            Text("Deep: ${vitals?.deepSleepPercent ?: 24}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Tiefschlaf: ${vitals?.deepSleepPercent ?: 0}%", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         // Fall monitor
@@ -317,98 +325,140 @@ fun SeniorElderScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Safe",
+                                text = "Sicher",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color(0xFF10B981)
                             )
-                            Text("Fall Guard", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Sturzwächter", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
         }
 
-        // Section: Daily Routine & Medication Reminders
+        // Section: Medication Schedule
         item {
-            Text(
-                text = "Medication Schedule (Grandma Rose)",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Medikamentenplan & Erinnerungen",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Button(
+                    onClick = { showAddMedDialog = true },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Medikament anlegen")
+                }
+            }
         }
 
-        // Large Medication Reminder Cards
-        items(medications) { med ->
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (med.isTakenToday) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    else MaterialTheme.colorScheme.surface
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("elder_med_${med.id}")
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+        if (medications.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (med.isTakenToday) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.secondaryContainer
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Medication,
-                            contentDescription = null,
-                            tint = if (med.isTakenToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(14.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
+                    Box(modifier = Modifier.padding(24.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = med.name,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (med.isTakenToday) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${med.reminderTime} • ${med.dosage} • ${med.instructions}",
-                            fontSize = 13.sp,
+                            text = "Noch keine Medikamente eingetragen. Klicke auf 'Medikament anlegen', um tägliche Einnahmen zu planen.",
+                            fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Button(
-                        onClick = { onToggleMedication(med) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (med.isTakenToday) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary
-                        ),
+                }
+            }
+        } else {
+            items(medications) { med ->
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (med.isTakenToday) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        else MaterialTheme.colorScheme.surface
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("elder_med_${med.id}")
+                ) {
+                    Row(
                         modifier = Modifier
-                            .height(52.dp)
-                            .testTag("toggle_med_${med.id}")
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = if (med.isTakenToday) "Taken ✓" else "Take Now",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (med.isTakenToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (med.isTakenToday) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.secondaryContainer
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Medication,
+                                contentDescription = null,
+                                tint = if (med.isTakenToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = med.name,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (med.isTakenToday) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${med.reminderTime} • ${med.dosage} (${med.timeOfDay})",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (med.instructions.isNotBlank()) {
+                                Text(
+                                    text = med.instructions,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Button(
+                            onClick = { onToggleMedication(med) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (med.isTakenToday) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier
+                                .height(52.dp)
+                                .testTag("toggle_med_${med.id}")
+                        ) {
+                            Text(
+                                text = if (med.isTakenToday) "Eingenommen ✓" else "Einnehmen",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (med.isTakenToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+
+                        IconButton(onClick = { onDeleteMedication(med) }) {
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.outline)
+                        }
                     }
                 }
             }
@@ -417,5 +467,145 @@ fun SeniorElderScreen(
         item {
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
+
+    // Add Medication Dialog
+    if (showAddMedDialog) {
+        var medName by remember { mutableStateOf("") }
+        var dosage by remember { mutableStateOf("") }
+        var timeOfDay by remember { mutableStateOf("Morgens") }
+        var reminderTime by remember { mutableStateOf("08:00") }
+        var instructions by remember { mutableStateOf("") }
+
+        val times = listOf("Morgens", "Mittags", "Abends", "Zur Nacht")
+
+        AlertDialog(
+            onDismissRequest = { showAddMedDialog = false },
+            title = { Text("Medikament anlegen", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = medName,
+                        onValueChange = { medName = it },
+                        label = { Text("Medikamentenname *") },
+                        placeholder = { Text("z. B. Blutdrucktabletten") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = dosage,
+                        onValueChange = { dosage = it },
+                        label = { Text("Dosierung (z. B. 10mg / 1 Tablette)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = reminderTime,
+                        onValueChange = { reminderTime = it },
+                        label = { Text("Uhrzeit (z. B. 08:00)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("Tageszeit:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        times.forEach { t ->
+                            FilterChip(
+                                selected = timeOfDay == t,
+                                onClick = { timeOfDay = t },
+                                label = { Text(t, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = instructions,
+                        onValueChange = { instructions = it },
+                        label = { Text("Hinweis (z. B. Nach dem Essen mit Wasser)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (medName.isNotBlank()) {
+                            onAddMedication(medName, dosage, timeOfDay, reminderTime, instructions)
+                            showAddMedDialog = false
+                        }
+                    }
+                ) {
+                    Text("Speichern")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddMedDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
+
+    // Vitals Dialog
+    if (showVitalsDialog) {
+        var hrText by remember { mutableStateOf((vitals?.heartRate ?: 72).toString()) }
+        var stepsText by remember { mutableStateOf((vitals?.steps ?: 3500).toString()) }
+        var sleepText by remember { mutableStateOf((vitals?.sleepHours ?: 7.5f).toString()) }
+        var deepText by remember { mutableStateOf((vitals?.deepSleepPercent ?: 22).toString()) }
+
+        AlertDialog(
+            onDismissRequest = { showVitalsDialog = false },
+            title = { Text("Vitalwerte eintragen / aktualisieren", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = hrText,
+                        onValueChange = { hrText = it },
+                        label = { Text("Puls (BPM)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = stepsText,
+                        onValueChange = { stepsText = it },
+                        label = { Text("Schritte heute") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = sleepText,
+                        onValueChange = { sleepText = it },
+                        label = { Text("Schlafstunden (z. B. 7.5)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = deepText,
+                        onValueChange = { deepText = it },
+                        label = { Text("Tiefschlaf (%)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val hr = hrText.toIntOrNull() ?: 72
+                        val steps = stepsText.toIntOrNull() ?: 3500
+                        val sleep = sleepText.toFloatOrNull() ?: 7.5f
+                        val deep = deepText.toIntOrNull() ?: 20
+                        onUpdateVitals(hr, steps, sleep, deep, 98)
+                        showVitalsDialog = false
+                    }
+                ) {
+                    Text("Aktualisieren")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVitalsDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
     }
 }

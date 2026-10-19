@@ -270,8 +270,26 @@ fun HomeScreen(
             }
 
             // Chore Items
-            items(chores.take(5)) { chore ->
-                ChoreItemCard(chore = chore, onToggle = { onToggleChore(chore) })
+            if (chores.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Box(modifier = Modifier.padding(20.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "Keine Aufgaben anstehend. Tippe auf '+', um deine erste Aufgabe oder Reparatur anzulegen!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(chores.take(5)) { chore ->
+                    ChoreItemCard(chore = chore, onToggle = { onToggleChore(chore) })
+                }
             }
 
             // Smart Home Overview Row
@@ -282,7 +300,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Smart Home Telemetry",
+                        text = "Smart Home Telemetrie",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -296,34 +314,52 @@ fun HomeScreen(
             }
 
             // Device quick status items
-            items(devices.take(3)) { dev ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            if (devices.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Router,
-                            contentDescription = null,
-                            tint = if (dev.status == "WARNING") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.padding(16.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text(
-                                text = dev.name,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Text(
-                                text = "${dev.location} • ${dev.metricValue}",
+                                text = "Keine Geräte verbunden. Tippe auf 'Alle anzeigen', um dein erstes Smart-Home-Gerät zu verbinden.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (dev.status == "WARNING") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+                }
+            } else {
+                items(devices.take(3)) { dev ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Router,
+                                contentDescription = null,
+                                tint = if (dev.status == "WARNING") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = dev.name,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleSmall
+                                )
+                                Text(
+                                    text = "${dev.location} • ${dev.metricValue}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (dev.status == "WARNING") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

@@ -38,6 +38,9 @@ interface ChoreDao {
 
     @Delete
     suspend fun deleteChore(chore: ChoreEntity)
+
+    @Query("DELETE FROM chores")
+    suspend fun clearAllChores()
 }
 
 @Dao
@@ -59,6 +62,9 @@ interface ShoppingDao {
 
     @Query("DELETE FROM shopping_items WHERE isPurchased = 1")
     suspend fun clearCompleted()
+
+    @Query("DELETE FROM shopping_items")
+    suspend fun clearAllItems()
 }
 
 @Dao
@@ -74,6 +80,9 @@ interface ExpenseDao {
 
     @Delete
     suspend fun deleteExpense(expense: ExpenseEntity)
+
+    @Query("DELETE FROM expenses")
+    suspend fun clearAllExpenses()
 }
 
 @Dao
@@ -85,10 +94,19 @@ interface FamilyMemberDao {
     suspend fun getMemberById(id: Long): FamilyMemberEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMember(member: FamilyMemberEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMembers(members: List<FamilyMemberEntity>)
 
     @Update
     suspend fun updateMember(member: FamilyMemberEntity)
+
+    @Delete
+    suspend fun deleteMember(member: FamilyMemberEntity)
+
+    @Query("DELETE FROM family_members")
+    suspend fun clearAllMembers()
 }
 
 @Dao
@@ -97,10 +115,19 @@ interface SmartDeviceDao {
     fun getAllDevices(): Flow<List<SmartDeviceEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDevice(device: SmartDeviceEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDevices(devices: List<SmartDeviceEntity>)
 
     @Update
     suspend fun updateDevice(device: SmartDeviceEntity)
+
+    @Delete
+    suspend fun deleteDevice(device: SmartDeviceEntity)
+
+    @Query("DELETE FROM smart_devices")
+    suspend fun clearAllDevices()
 }
 
 @Dao
@@ -109,13 +136,22 @@ interface MedicationDao {
     fun getAllMedications(): Flow<List<MedicationEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMedication(medication: MedicationEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMedications(medications: List<MedicationEntity>)
 
     @Update
     suspend fun updateMedication(medication: MedicationEntity)
 
+    @Delete
+    suspend fun deleteMedication(medication: MedicationEntity)
+
     @Query("UPDATE medications SET isTakenToday = :taken")
     suspend fun resetAllTakenStatus(taken: Boolean)
+
+    @Query("DELETE FROM medications")
+    suspend fun clearAllMedications()
 }
 
 @Dao
@@ -128,6 +164,9 @@ interface WearableDao {
 
     @Update
     suspend fun updateVital(vital: WearableVitalEntity)
+
+    @Query("DELETE FROM wearable_vitals")
+    suspend fun clearAllVitals()
 }
 
 @Dao
@@ -152,4 +191,7 @@ interface NotificationDao {
 
     @Delete
     suspend fun deleteAlert(alert: NotificationAlertEntity)
+
+    @Query("DELETE FROM notification_alerts")
+    suspend fun clearAllNotifications()
 }

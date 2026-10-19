@@ -14,7 +14,6 @@ import com.example.notification.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -60,18 +59,22 @@ class HomeRepository(
         if (chore.isUrgentRepair) {
             notificationHelper.showUrgentRepairNotification(
                 title = chore.title,
-                message = chore.description.ifEmpty { "Urgent home repair required immediately." }
+                message = chore.description.ifEmpty { "Dringende Haushaltsreparatur erforderlich." }
             )
             db.notificationDao().insertAlert(
                 NotificationAlertEntity(
-                    title = "🚨 Urgent Repair: ${chore.title}",
-                    message = chore.description.ifEmpty { "Immediate attention required." },
+                    title = "🚨 Dringende Reparatur: ${chore.title}",
+                    message = chore.description.ifEmpty { "Sofortige Prüfung erforderlich." },
                     type = "URGENT_REPAIR",
                     timestamp = System.currentTimeMillis(),
                     isUrgent = true
                 )
             )
         }
+    }
+
+    suspend fun updateChore(chore: ChoreEntity) {
+        db.choreDao().updateChore(chore)
     }
 
     suspend fun deleteChore(chore: ChoreEntity) {
@@ -83,15 +86,28 @@ class HomeRepository(
         db.shoppingDao().updateItem(item.copy(isPurchased = !item.isPurchased))
     }
 
-    suspend fun addShoppingItem(name: String, category: String = "Groceries", cost: Double = 0.0, addedBy: String = "Family") {
+    suspend fun addShoppingItem(
+        name: String,
+        category: String = "Lebensmittel",
+        quantity: String = "1",
+        cost: Double = 0.0,
+        priority: String = "Normal",
+        addedBy: String = "Familie"
+    ) {
         db.shoppingDao().insertItem(
             ShoppingItemEntity(
                 name = name,
                 category = category,
+                quantity = quantity,
                 estimatedCost = cost,
+                priority = priority,
                 addedByName = addedBy
             )
         )
+    }
+
+    suspend fun addShoppingItem(name: String, category: String, cost: Double, addedBy: String) {
+        addShoppingItem(name = name, category = category, quantity = "1", cost = cost, priority = "Normal", addedBy = addedBy)
     }
 
     suspend fun deleteShoppingItem(item: ShoppingItemEntity) {
@@ -120,34 +136,74 @@ class HomeRepository(
         db.expenseDao().deleteExpense(expense)
     }
 
-    // Smart Device Operations & Automation Trigger
+    // Family Member Operations (Add, Edit, Delete)
+    suspend fun addFamilyMember(name: String, role: String, relationship: String, emergencyPhone: String = "", color: Long = 0xFF0D9488) {
+        db.familyMemberDao().insertMember(
+            FamilyMemberEntity(
+                name = name,
+                role = role,
+                avatarColor = color,
+                points = 0,
+                emergencyPhone = emergencyPhone,
+                relationship = relationship
+            )
+        )
+    }
+
+    suspend fun updateFamilyMember(member: FamilyMemberEntity) {
+        db.familyMemberDao().updateMember(member)
+    }
+
+    suspend fun deleteFamilyMember(member: FamilyMemberEntity) {
+        db.familyMemberDao().deleteMember(member)
+    }
+
+    // Smart Device Operations
+    suspend fun addSmartDevice(name: String, type: String, location: String) {
+        db.smartDeviceDao().insertDevice(
+            SmartDeviceEntity(
+                id = "dev_${System.currentTimeMillis()}",
+                name = name,
+                type = type,
+                location = location,
+                status = "NORMAL",
+                batteryLevel = 100,
+                healthPercent = 100,
+                metricLabel = "Status",
+                metricValue = "Bereit & Verbunden",
+                lastAction = "Neu hinzugefügt"
+            )
+        )
+    }
+
+    suspend fun deleteSmartDevice(device: SmartDeviceEntity) {
+        db.smartDeviceDao().deleteDevice(device)
+    }
+
     suspend fun triggerDeviceAction(device: SmartDeviceEntity) {
         when (device.type) {
             "ROBOT_VACUUM" -> {
-                // If docked, start cleaning and schedule a future empty dustbin chore
                 val updated = device.copy(
-                    status = "RUNNING",
-                    metricValue = "Cleaning Downstairs (Living Room & Kitchen)",
-                    lastAction = "Vacuuming cycle in progress"
+                    status = if (device.status == "RUNNING") "NORMAL" else "RUNNING",
+                    metricValue = if (device.status == "RUNNING") "Angedockt & Geladen" else "Reinigung im Gange",
+                    lastAction = if (device.status == "RUNNING") "Zyklus beendet" else "Saugvorgang gestartet"
                 )
                 db.smartDeviceDao().updateDevice(updated)
             }
             "DISHWASHER" -> {
-                // Cycle done -> triggers chore to unload dishwasher
                 val updated = device.copy(
                     status = "NORMAL",
-                    metricValue = "Clean & Sanitized - Ready to Unload",
-                    lastAction = "Cycle completed successfully"
+                    metricValue = "Sauber - Bereit zum Ausräumen",
+                    lastAction = "Spülgang erfolgreich beendet"
                 )
                 db.smartDeviceDao().updateDevice(updated)
-                // Auto create chore for Teen Alex
                 addChore(
                     ChoreEntity(
-                        title = "Unload Clean Dishes from Bosch Dishwasher",
-                        description = "Automated sensor trigger: sanitize wash complete.",
+                        title = "Geschirrspüler ausräumen",
+                        description = "Sensor-Meldung: Spülgang abgeschlossen.",
                         category = "KITCHEN",
-                        assignedMemberId = 3,
-                        assignedMemberName = "Alex",
+                        assignedMemberId = 1,
+                        assignedMemberName = "Familie",
                         dueDate = System.currentTimeMillis() + (2 * 3600_000L),
                         priority = "MEDIUM",
                         pointsValue = 15
@@ -155,22 +211,20 @@ class HomeRepository(
                 )
             }
             "HVAC_FILTER" -> {
-                // Reset filter after replacing
                 val updated = device.copy(
                     status = "NORMAL",
                     healthPercent = 100,
-                    metricValue = "100% (Clean Airflow)",
-                    lastAction = "New Merv-11 filter installed"
+                    metricValue = "100% (Frischer Luftstrom)",
+                    lastAction = "Neuer Filter eingesetzt"
                 )
                 db.smartDeviceDao().updateDevice(updated)
             }
             "SMOKE_DETECTOR" -> {
-                // Run diagnostic test
                 val updated = device.copy(
                     status = "NORMAL",
                     healthPercent = 100,
-                    metricValue = "All Sensors Tested OK (85dB Horn Verified)",
-                    lastAction = "Manual test completed just now"
+                    metricValue = "Sensoren geprüft (OK)",
+                    lastAction = "Manueller Alarmtest durchgeführt"
                 )
                 db.smartDeviceDao().updateDevice(updated)
             }
@@ -180,12 +234,25 @@ class HomeRepository(
         }
     }
 
-    // Medication Operations
+    // Medication Operations (Add, Toggle, Delete)
+    suspend fun addMedication(name: String, dosage: String, timeOfDay: String, reminderTime: String, instructions: String) {
+        db.medicationDao().insertMedication(
+            MedicationEntity(
+                name = name,
+                dosage = dosage,
+                timeOfDay = timeOfDay,
+                reminderTime = reminderTime,
+                instructions = instructions,
+                isTakenToday = false,
+                seniorMemberId = 5
+            )
+        )
+    }
+
     suspend fun toggleMedicationTaken(med: MedicationEntity) {
         val updated = med.copy(isTakenToday = !med.isTakenToday)
         db.medicationDao().updateMedication(updated)
         if (updated.isTakenToday) {
-            // Reward elder for adherence
             val senior = db.familyMemberDao().getMemberById(5)
             if (senior != null) {
                 db.familyMemberDao().updateMember(senior.copy(points = senior.points + 10))
@@ -193,8 +260,28 @@ class HomeRepository(
         }
     }
 
+    suspend fun deleteMedication(med: MedicationEntity) {
+        db.medicationDao().deleteMedication(med)
+    }
+
     suspend fun resetMedicationsForNewDay() {
         db.medicationDao().resetAllTakenStatus(false)
+    }
+
+    // Wearable Vitals
+    suspend fun updateWearableVitals(heartRate: Int, steps: Int, sleepHours: Float, deepSleepPercent: Int, spo2Percent: Int) {
+        db.wearableDao().insertVital(
+            WearableVitalEntity(
+                memberId = 5,
+                heartRate = heartRate,
+                steps = steps,
+                sleepHours = sleepHours,
+                deepSleepPercent = deepSleepPercent,
+                spo2Percent = spo2Percent,
+                fallDetected = false,
+                lastSyncTimestamp = System.currentTimeMillis()
+            )
+        )
     }
 
     // Notifications
@@ -206,15 +293,23 @@ class HomeRepository(
         db.notificationDao().deleteAlert(alert)
     }
 
+    // Complete Wipe of all example/mock/test data
+    suspend fun clearAllExampleData() {
+        db.choreDao().clearAllChores()
+        db.shoppingDao().clearAllItems()
+        db.expenseDao().clearAllExpenses()
+        db.medicationDao().clearAllMedications()
+        db.notificationDao().clearAllNotifications()
+        db.smartDeviceDao().clearAllDevices()
+        db.wearableDao().clearAllVitals()
+    }
+
     // Cloud Backup & Restore Data (Encrypted JSON Export/Import)
     suspend fun exportBackupJson(): String = withContext(Dispatchers.IO) {
         val root = JSONObject()
         root.put("app", "HomeNest")
-        root.put("version", "1.0")
+        root.put("version", "2.0")
         root.put("exportedAt", System.currentTimeMillis())
-
-        val choreArray = JSONArray()
-        // We can safely snapshot current data
         root.put("status", "Cloud Backup Complete - AES-256 integrity verified")
         root.toString(2)
     }

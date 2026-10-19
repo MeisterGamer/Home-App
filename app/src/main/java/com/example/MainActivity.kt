@@ -79,6 +79,7 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
     val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
     val isHighContrast by viewModel.isHighContrast.collectAsStateWithLifecycle()
     val currentLanguage by viewModel.currentLanguage.collectAsStateWithLifecycle()
+    val monthlyBudgetCap by viewModel.monthlyBudgetCap.collectAsStateWithLifecycle()
     val syncState by viewModel.syncState.collectAsStateWithLifecycle()
 
     val voiceFeedback by viewModel.voiceFeedback.collectAsStateWithLifecycle()
@@ -159,6 +160,13 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                         isHighContrast = isHighContrast,
                         language = currentLanguage,
                         onToggleMedication = { viewModel.toggleMedication(it) },
+                        onAddMedication = { name, dosage, time, rem, inst ->
+                            viewModel.addMedication(name, dosage, time, rem, inst)
+                        },
+                        onDeleteMedication = { viewModel.deleteMedication(it) },
+                        onUpdateVitals = { hr, steps, sleep, deep, spo2 ->
+                            viewModel.updateWearableVitals(hr, steps, sleep, deep, spo2)
+                        },
                         onToggleDarkMode = { viewModel.toggleDarkMode() },
                         onToggleHighContrast = { viewModel.toggleHighContrast() },
                         onOpenVoice = { viewModel.setVoiceDialogOpen(true) }
@@ -192,6 +200,9 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                             onToggleItem = { viewModel.toggleShoppingItem(it) },
                             onDeleteItem = { viewModel.deleteShoppingItem(it) },
                             onAddItem = { name, cat, cost -> viewModel.addShoppingItem(name, cat, cost) },
+                            onAddItemDetailed = { name, cat, qty, cost, prio ->
+                                viewModel.addShoppingItem(name, cat, cost, qty, prio)
+                            },
                             onClearCompleted = { viewModel.clearCompletedShopping() }
                         )
                         AppScreen.CALENDAR -> CalendarScreen(
@@ -204,15 +215,19 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                         AppScreen.BUDGET -> BudgetScreen(
                             expenses = allExpenses,
                             language = currentLanguage,
+                            monthlyCap = monthlyBudgetCap,
                             onDeleteExpense = { viewModel.deleteExpense(it) },
                             onAddExpense = { title, cat, amount, notes ->
                                 viewModel.logExpense(title, cat, amount, notes)
-                            }
+                            },
+                            onUpdateBudgetCap = { viewModel.setMonthlyBudgetCap(it) }
                         )
                         AppScreen.SMART_HOME -> SmartHomeHubScreen(
                             devices = allDevices,
                             language = currentLanguage,
-                            onTriggerDevice = { viewModel.triggerSmartDevice(it) }
+                            onTriggerDevice = { viewModel.triggerSmartDevice(it) },
+                            onAddDevice = { name, type, loc -> viewModel.addSmartDevice(name, type, loc) },
+                            onDeleteDevice = { viewModel.deleteSmartDevice(it) }
                         )
                         AppScreen.SENIOR_CARE -> SeniorElderScreen(
                             medications = allMedications,
@@ -221,6 +236,13 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                             isHighContrast = isHighContrast,
                             language = currentLanguage,
                             onToggleMedication = { viewModel.toggleMedication(it) },
+                            onAddMedication = { name, dosage, time, rem, inst ->
+                                viewModel.addMedication(name, dosage, time, rem, inst)
+                            },
+                            onDeleteMedication = { viewModel.deleteMedication(it) },
+                            onUpdateVitals = { hr, steps, sleep, deep, spo2 ->
+                                viewModel.updateWearableVitals(hr, steps, sleep, deep, spo2)
+                            },
                             onToggleDarkMode = { viewModel.toggleDarkMode() },
                             onToggleHighContrast = { viewModel.toggleHighContrast() },
                             onOpenVoice = { viewModel.setVoiceDialogOpen(true) }
@@ -237,11 +259,18 @@ fun HomeApp(viewModel: HomeViewModel = viewModel()) {
                             isHighContrast = isHighContrast,
                             currentLanguage = currentLanguage,
                             syncState = syncState,
+                            monthlyBudgetCap = monthlyBudgetCap,
                             onSelectMember = { viewModel.selectMember(it) },
                             onToggleDarkMode = { viewModel.toggleDarkMode() },
                             onToggleHighContrast = { viewModel.toggleHighContrast() },
                             onSetLanguage = { viewModel.setLanguage(it) },
-                            onTriggerSync = { viewModel.triggerCloudSync() }
+                            onTriggerSync = { viewModel.triggerCloudSync() },
+                            onClearExampleData = { viewModel.clearAllExampleData() },
+                            onAddMember = { name, role, rel, phone ->
+                                viewModel.addFamilyMember(name, role, rel, phone)
+                            },
+                            onDeleteMember = { viewModel.deleteFamilyMember(it) },
+                            onUpdateBudgetCap = { viewModel.setMonthlyBudgetCap(it) }
                         )
                     }
                 }

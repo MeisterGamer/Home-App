@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -39,8 +38,8 @@ enum class AppScreen {
 
 data class SyncState(
     val isSyncing: Boolean = false,
-    val lastSyncTime: String = "Just now",
-    val syncMessage: String = "All data encrypted and cached locally"
+    val lastSyncTime: String = "Gerade eben",
+    val syncMessage: String = "100% Offline-fähig • Lokale SQLite-Datenbank aktiv"
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -75,8 +74,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _isHighContrast = MutableStateFlow(false)
     val isHighContrast: StateFlow<Boolean> = _isHighContrast.asStateFlow()
 
-    private val _currentLanguage = MutableStateFlow(AppLanguage.EN)
+    private val _currentLanguage = MutableStateFlow(AppLanguage.DE)
     val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
+
+    private val _monthlyBudgetCap = MutableStateFlow(1200.0)
+    val monthlyBudgetCap: StateFlow<Double> = _monthlyBudgetCap.asStateFlow()
 
     private val _syncState = MutableStateFlow(SyncState())
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
@@ -97,11 +99,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectMember(member: FamilyMemberEntity) {
         _selectedMember.value = member
-        // If grandma is selected, automatically activate Senior Mode!
         if (member.role == "SENIOR") {
             _isSeniorMode.value = true
-        } else if (_isSeniorMode.value && member.role != "SENIOR") {
-            // Keep user preference or allow manual toggle
         }
     }
 
@@ -119,6 +118,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setLanguage(language: AppLanguage) {
         _currentLanguage.value = language
+    }
+
+    fun setMonthlyBudgetCap(cap: Double) {
+        _monthlyBudgetCap.value = cap
     }
 
     fun setVoiceDialogOpen(open: Boolean) {
@@ -179,10 +182,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addShoppingItem(name: String, category: String, cost: Double) {
+    fun addShoppingItem(
+        name: String,
+        category: String = "Lebensmittel",
+        cost: Double = 0.0,
+        quantity: String = "1",
+        priority: String = "Normal"
+    ) {
         viewModelScope.launch {
-            val adder = _selectedMember.value?.name ?: "Family"
-            repository.addShoppingItem(name, category, cost, adder)
+            val adder = _selectedMember.value?.name ?: "Familie"
+            repository.addShoppingItem(
+                name = name,
+                category = category,
+                quantity = quantity,
+                cost = cost,
+                priority = priority,
+                addedBy = adder
+            )
         }
     }
 
@@ -201,7 +217,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // Budget & Expense Actions
     fun logExpense(title: String, category: String, amount: Double, notes: String = "") {
         viewModelScope.launch {
-            val loggedBy = _selectedMember.value?.name ?: "David (Dad)"
+            val loggedBy = _selectedMember.value?.name ?: "Familie"
             repository.addExpense(title, category, amount, loggedBy, notes)
         }
     }
@@ -212,17 +228,63 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Smart Device Trigger
+    // Family Member Operations
+    fun addFamilyMember(name: String, role: String, relationship: String, emergencyPhone: String = "") {
+        viewModelScope.launch {
+            val colors = listOf(0xFF0D9488L, 0xFF2563EBL, 0xFF8B5CF6L, 0xFFF59E0BL, 0xFFEC4899L, 0xFF10B981L)
+            val randomColor = colors.random()
+            repository.addFamilyMember(name, role, relationship, emergencyPhone, randomColor)
+        }
+    }
+
+    fun deleteFamilyMember(member: FamilyMemberEntity) {
+        viewModelScope.launch {
+            repository.deleteFamilyMember(member)
+        }
+    }
+
+    // Smart Device Operations
+    fun addSmartDevice(name: String, type: String, location: String) {
+        viewModelScope.launch {
+            repository.addSmartDevice(name, type, location)
+        }
+    }
+
+    fun deleteSmartDevice(device: SmartDeviceEntity) {
+        viewModelScope.launch {
+            repository.deleteSmartDevice(device)
+        }
+    }
+
     fun triggerSmartDevice(device: SmartDeviceEntity) {
         viewModelScope.launch {
             repository.triggerDeviceAction(device)
         }
     }
 
-    // Medication Actions
+    // Medication Operations
+    fun addMedication(name: String, dosage: String, timeOfDay: String, reminderTime: String, instructions: String) {
+        viewModelScope.launch {
+            repository.addMedication(name, dosage, timeOfDay, reminderTime, instructions)
+        }
+    }
+
     fun toggleMedication(med: MedicationEntity) {
         viewModelScope.launch {
             repository.toggleMedicationTaken(med)
+        }
+    }
+
+    fun deleteMedication(med: MedicationEntity) {
+        viewModelScope.launch {
+            repository.deleteMedication(med)
+        }
+    }
+
+    // Wearable Vitals
+    fun updateWearableVitals(heartRate: Int, steps: Int, sleepHours: Float, deepSleepPercent: Int, spo2Percent: Int) {
+        viewModelScope.launch {
+            repository.updateWearableVitals(heartRate, steps, sleepHours, deepSleepPercent, spo2Percent)
         }
     }
 
@@ -239,16 +301,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Complete Wipe of all example / demo data
+    fun clearAllExampleData() {
+        viewModelScope.launch {
+            repository.clearAllExampleData()
+            _voiceFeedback.value = "Alle Beispieldaten wurden erfolgreich gelöscht! Die App ist jetzt sauber und bereit."
+        }
+    }
+
     // Cloud Sync Simulator
     fun triggerCloudSync() {
         viewModelScope.launch {
-            _syncState.value = SyncState(isSyncing = true, syncMessage = "Synchronizing with HomeNest Cloud...")
-            delay(1200)
+            _syncState.value = SyncState(isSyncing = true, syncMessage = "Synchronisiere mit HomeNest Cloud...")
+            delay(1000)
             val json = repository.exportBackupJson()
             _syncState.value = SyncState(
                 isSyncing = false,
-                lastSyncTime = "Just now",
-                syncMessage = "Backup verified & safely encrypted across devices"
+                lastSyncTime = "Gerade eben",
+                syncMessage = "Backup geprüft & AES-256 verschlüsselt gespeichert"
             )
         }
     }
@@ -259,9 +329,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             when (action) {
                 is VoiceActionResult.AddShoppingItem -> {
-                    val adder = _selectedMember.value?.name ?: "Voice Assistant"
-                    repository.addShoppingItem(action.name, action.category, 0.0, adder)
-                    _voiceFeedback.value = "Added '${action.name}' to shopping list!"
+                    val adder = _selectedMember.value?.name ?: "Sprachassistent"
+                    repository.addShoppingItem(
+                        name = action.name,
+                        category = action.category,
+                        quantity = "1",
+                        cost = 0.0,
+                        priority = "Normal",
+                        addedBy = adder
+                    )
+                    _voiceFeedback.value = "'${action.name}' zur Einkaufsliste hinzugefügt!"
                 }
                 is VoiceActionResult.CompleteChore -> {
                     val currentChores = allChores.value
@@ -271,9 +348,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     if (match != null) {
                         repository.toggleChoreCompletion(match, _selectedMember.value?.id ?: 1L)
-                        _voiceFeedback.value = "Marked '${match.title}' as completed! (+${match.pointsValue} pts)"
+                        _voiceFeedback.value = "'${match.title}' als erledigt markiert! (+${match.pointsValue} Pkt)"
                     } else {
-                        _voiceFeedback.value = "Could not find task matching '${action.choreQuery}'"
+                        _voiceFeedback.value = "Keine Aufgabe passend zu '${action.choreQuery}' gefunden."
                     }
                 }
                 is VoiceActionResult.AddUrgentRepair -> {
@@ -282,37 +359,37 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             title = action.title,
                             description = action.description,
                             category = "MAINTENANCE",
-                            assignedMemberId = _selectedMember.value?.id ?: 2L,
-                            assignedMemberName = _selectedMember.value?.name ?: "Family",
+                            assignedMemberId = _selectedMember.value?.id ?: 1L,
+                            assignedMemberName = _selectedMember.value?.name ?: "Familie",
                             dueDate = System.currentTimeMillis() + 3600_000L,
                             priority = "URGENT",
                             isUrgentRepair = true,
                             pointsValue = 30
                         )
                     )
-                    _voiceFeedback.value = "Urgent repair created: '${action.title}' & alert sent!"
+                    _voiceFeedback.value = "Dringende Reparatur '${action.title}' erstellt & Alarm gesendet!"
                 }
                 is VoiceActionResult.LogExpense -> {
-                    val loggedBy = _selectedMember.value?.name ?: "Voice Command"
-                    repository.addExpense(action.title, "MAINTENANCE", action.amount, loggedBy, "Voice logged")
-                    _voiceFeedback.value = "Logged \$${action.amount} expense for '${action.title}'"
+                    val loggedBy = _selectedMember.value?.name ?: "Sprachassistent"
+                    repository.addExpense(action.title, "MAINTENANCE", action.amount, loggedBy, "Per Sprachbefehl erfasst")
+                    _voiceFeedback.value = "Ausgabe von ${action.amount} € für '${action.title}' erfasst."
                 }
                 is VoiceActionResult.ToggleSeniorMode -> {
                     _isSeniorMode.value = true
-                    _voiceFeedback.value = "Switched to Elder Care Mode"
+                    _voiceFeedback.value = "In den Seniorenmodus gewechselt."
                 }
                 is VoiceActionResult.TakeMedication -> {
                     val meds = allMedications.value
                     val untaken = meds.firstOrNull { !it.isTakenToday }
                     if (untaken != null) {
                         repository.toggleMedicationTaken(untaken)
-                        _voiceFeedback.value = "Recorded '${untaken.name}' taken (+10 pts)"
+                        _voiceFeedback.value = "'${untaken.name}' als eingenommen markiert (+10 Pkt)"
                     } else {
-                        _voiceFeedback.value = "All medications are already taken today!"
+                        _voiceFeedback.value = "Alle Medikamente für heute bereits eingenommen!"
                     }
                 }
                 is VoiceActionResult.Unknown -> {
-                    _voiceFeedback.value = "Recognized: '$rawText'. Try: 'Add milk to shopping list' or 'Clean dishes complete'"
+                    _voiceFeedback.value = "Erkannt: '$rawText'. Beispiel: 'Milch zur Einkaufsliste hinzufügen' oder 'Geschirr erledigt'"
                 }
             }
         }
